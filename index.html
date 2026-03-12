@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Busca de Atividades</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg:      #0d1117;
+    --surface: #161b22;
+    --border:  #21262d;
+    --accent:  #00b894;
+    --accent2: #0984e3;
+    --text:    #e6edf3;
+    --muted:   #8b949e;
+    --danger:  #f85149;
+    --warning: #e3b341;
+    --success: #3fb950;
+    --neutral: #484f58;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 10px;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .accent-bar  { width: 3px; height: 24px; background: linear-gradient(180deg, var(--accent), var(--accent2)); border-radius: 2px; flex-shrink: 0; }
+  .title       { font-size: 14px; font-weight: 700; color: var(--text); }
+  .subtitle    { font-size: 11px; color: var(--muted); }
+  .badge-total {
+    background: rgba(0,184,148,.12); border: 1px solid rgba(0,184,148,.25);
+    color: var(--accent); padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+
+  /* STATUS INDICATOR */
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--neutral); flex-shrink: 0;
+    transition: background .3s;
+  }
+  .status-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.waiting   { background: var(--warning);
+    animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* CONTROLS */
+  .controls {
+    display: flex; flex-direction: column;
+    gap: 8px; padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .controls-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .search-wrap { position: relative; flex: 1; min-width: 180px; }
+  .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+  .search-input {
+    width: 100%; background: rgba(255,255,255,.04);
+    border: 1.5px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px;
+    padding: 8px 32px 8px 36px; outline: none;
+    transition: border-color .2s, box-shadow .2s; caret-color: var(--accent);
+  }
+  .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,184,148,.12); }
+  .search-input::placeholder { color: var(--neutral); }
+  .clear-btn {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 16px; line-height: 1; padding: 2px; display: none;
+  }
+
+  .filter-select {
+    background: rgba(255,255,255,.04); border: 1.5px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 12px; padding: 8px 12px; outline: none; cursor: pointer;
+    transition: border-color .2s; min-width: 120px;
+  }
+  .filter-select:focus { border-color: var(--accent); }
+  .filter-select option { background: #1c2128; }
+
+  .result-count { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  .btn-clear-all {
+    background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.25);
+    color: #f85149; border-radius: 7px; padding: 6px 12px;
+    font-size: 11px; font-weight: 600; cursor: pointer;
+    transition: background .15s; white-space: nowrap;
+  }
+  .btn-clear-all:hover { background: rgba(248,81,73,.2); }
+
+  /* TABLE */
+  .table-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+  .table-head {
+    display: grid;
+    grid-template-columns: 100px 1fr 80px 120px 105px 105px 100px;
+    padding: 8px 16px; gap: 8px;
+    background: rgba(255,255,255,.03);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em;
+    flex-shrink: 0; user-select: none;
+  }
+  .th-sort { cursor: pointer; display: flex; align-items: center; gap: 3px; }
+  .th-sort:hover { color: var(--text); }
+
+  .virtual-outer {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .virtual-outer::-webkit-scrollbar { width: 6px; }
+  .virtual-outer::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .virtual-inner { position: relative; }
+
+  .row {
+    display: grid;
+    grid-template-columns: 100px 1fr 80px 120px 105px 105px 100px;
+    padding: 0 16px; gap: 8px; align-items: center;
+    height: 38px; cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,.03);
+    border-left: 3px solid transparent;
+    transition: background .1s, border-color .1s;
+    position: absolute; left: 0; right: 0;
+  }
+  .row:nth-child(odd)  { background: rgba(255,255,255,.018); }
+  .row:hover           { background: #1c2128; }
+  .row.selected        { background: rgba(0,184,148,.08) !important; border-left-color: var(--accent); }
+
+  .cell-edt  { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cell-name { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cell-name.lvl-1 { font-weight: 700; color: var(--text); }
+  .cell-name.lvl-2 { font-weight: 500; color: #cdd9e5; padding-left: 10px; }
+  .cell-name.lvl-3 { font-weight: 400; color: #adb5bd; padding-left: 20px; }
+  .cell-name.lvl-4 { font-weight: 400; color: #8b949e; padding-left: 30px; }
+  .cell-cwa  { font-size: 11px; color: var(--accent2); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cell-disc { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cell-date { font-size: 11.5px; color: var(--muted); text-align: center; white-space: nowrap; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 20px;
+    font-size: 10.5px; font-weight: 600; white-space: nowrap;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .badge-concluido { background: rgba(63,185,80,.15);  color: #3fb950; }
+  .badge-andamento { background: rgba(9,132,227,.15);  color: #58a6ff; }
+  .badge-atrasado  { background: rgba(248,81,73,.15);  color: #f85149; }
+  .badge-executado { background: rgba(72,79,88,.2);    color: #8b949e; }
+
+  .cell-progress { display: flex; align-items: center; gap: 6px; }
+  .progress-track { flex: 1; height: 4px; background: rgba(255,255,255,.07); border-radius: 2px; overflow: hidden; }
+  .progress-fill  { height: 100%; border-radius: 2px; }
+  .pct-label { font-size: 11px; color: var(--text); min-width: 28px; text-align: right; }
+
+  /* DETAIL PANEL */
+  .detail {
+    background: var(--surface); border-top: 1px solid var(--border);
+    flex-shrink: 0; max-height: 0; overflow: hidden; transition: max-height .25s ease;
+  }
+  .detail.open { max-height: 190px; }
+  .detail-inner { padding: 12px 16px; }
+  .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .detail-meta { font-size: 10px; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px; }
+  .detail-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .close-btn {
+    background: rgba(255,255,255,.06); border: 1px solid var(--border);
+    color: var(--muted); border-radius: 6px; padding: 3px 9px;
+    cursor: pointer; font-size: 12px; margin-left: 12px; flex-shrink: 0;
+  }
+  .close-btn:hover { color: var(--text); }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(115px,1fr)); gap: 7px; }
+  .detail-kv { background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; }
+  .detail-kv .k { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+  .detail-kv .v { font-size: 13px; font-weight: 600; color: var(--text); }
+
+  /* EMPTY / WAITING */
+  .state-screen {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; flex: 1; gap: 12px; color: var(--muted);
+  }
+  .state-screen svg { opacity: .25; }
+  .state-screen p  { font-size: 13px; text-align: center; line-height: 1.6; max-width: 280px; }
+  .state-screen small { font-size: 11px; color: var(--neutral); }
+
+  .highlight { background: rgba(0,184,148,.3); border-radius: 2px; padding: 0 1px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="accent-bar"></div>
+    <div>
+      <div class="title">🔍 Busca de Atividades</div>
+      <div class="subtitle">Conectado ao Power BI</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="status-dot waiting" id="statusDot" title="Aguardando dados do Power BI"></div>
+    <span class="badge-total" id="badgeTotal">— atividades</span>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls" id="controlsArea" style="display:none">
+  <div class="controls-row">
+    <div class="search-wrap">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00b894" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input id="searchInput" class="search-input" type="text"
+        placeholder="Buscar por EDT, nome, disciplina ou CWA…" autocomplete="off"/>
+      <button class="clear-btn" id="clearBtn">×</button>
+    </div>
+    <button class="btn-clear-all" id="btnClearAll">✕ Limpar filtros</button>
+  </div>
+
+  <div class="controls-row">
+    <select class="filter-select" id="filterDisc">
+      <option value="">Todas as Disciplinas</option>
+    </select>
+    <select class="filter-select" id="filterCWA">
+      <option value="">Todos os CWA</option>
+    </select>
+    <select class="filter-select" id="filterStatus">
+      <option value="">Todos os Status</option>
+      <option value="Concluído">✅ Concluído</option>
+      <option value="Em Andamento">🔵 Em Andamento</option>
+      <option value="Atrasado">🔴 Atrasado</option>
+      <option value="Não Executado">⚪ Não Executado</option>
+    </select>
+    <span class="result-count" id="resultCount"></span>
+  </div>
+</div>
+
+<!-- TABLE (shown after data loads) -->
+<div class="table-wrap" id="tableArea" style="display:none">
+  <div class="table-head">
+    <span class="th-sort" data-col="edt">EDT</span>
+    <span>Nome da Tarefa</span>
+    <span>CWA</span>
+    <span>Disciplina</span>
+    <span style="text-align:center">Status</span>
+    <span style="text-align:center">Início Real</span>
+    <span>% Concluída</span>
+  </div>
+  <div class="virtual-outer" id="virtualOuter">
+    <div class="virtual-inner" id="virtualInner"></div>
+  </div>
+</div>
+
+<!-- WAITING STATE -->
+<div class="state-screen" id="waitingScreen">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+  </svg>
+  <p>Aguardando dados do Power BI…</p>
+  <small>Os dados serão enviados automaticamente<br>pelo visual HTML Content do relatório.</small>
+</div>
+
+<!-- EMPTY SEARCH STATE -->
+<div class="state-screen" id="emptyScreen" style="display:none">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    <path d="M8 11h6M11 8v6" opacity=".4"/>
+  </svg>
+  <p>Nenhuma atividade encontrada</p>
+  <small>Tente outros termos ou remova os filtros</small>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="detail" id="detailPanel">
+  <div class="detail-inner" id="detailContent"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  ESTE ARQUIVO NÃO CONTÉM DADOS DO PROJETO.
+//  Os dados chegam via window.postMessage do Power BI (HTML Content visual).
+//
+//  COMO CONFIGURAR NO POWER BI:
+//  ─────────────────────────────────────────────────────────────────
+//  1. Instale o visual "HTML Content" (AppSource, gratuito)
+//  2. Crie a medida DAX abaixo e arraste para o campo "HTML Content"
+//
+//  Medida DAX — Busca Atividades =
+//  "<iframe id='buscaFrame'
+//     src='https://pedropereira29.github.io/Projetos/'
+//     style='width:100%;height:100%;border:none'
+//     onload=""
+//       var d=" & SUBSTITUTE(SUBSTITUTE([JSON_Cronograma],"""","'"),"
+//  ","") & ";
+//       document.getElementById('buscaFrame').contentWindow.postMessage(
+//         {type:'pbi-data',rows:JSON.parse(d)}, '*'
+//       );
+//    "">
+//  </iframe>"
+//
+//  3. Crie a medida JSON_Cronograma com:
+//
+//  JSON_Cronograma =
+//  "[" &
+//    CONCATENATEX(
+//      Cronograma,
+//      "{""edt"":""" & [EDT] & """," &
+//      """nome"":""" & SUBSTITUTE([Nome da Tarefa],"""","'") & """," &
+//      """cwa"":""" & [CWA] & """," &
+//      """disciplina"":""" & [Disciplina] & """," &
+//      """status"":""" & [Status] & """," &
+//      """inicio"":""" & FORMAT([Início real],"DD/MM/YYYY") & """," &
+//      """termino"":""" & FORMAT([Término real],"DD/MM/YYYY") & """," &
+//      """inicioBase"":""" & FORMAT([Início Linha de Base],"DD/MM/YYYY") & """," &
+//      """terminoBase"":""" & FORMAT([Término Linha de Base],"DD/MM/YYYY") & """," &
+//      """concluida"":" & [% Concluída] & "," &
+//      """desvio"":" & [% Desvio] & "," &
+//      """prev"":" & [% Prev] & "," &
+//      """real"":" & [% Real] & "}",
+//      ","
+//    ) &
+//  "]"
+//
+//  ─────────────────────────────────────────────────────────────────
+//  RETORNO DE FILTRO PARA O POWER BI:
+//  Quando o usuário seleciona uma atividade, este iframe envia:
+//  window.parent.postMessage({type:'pbi-filter', edt: '...', cwa: '...', disciplina: '...'}, '*')
+//  O Power BI pode capturar isso se integrado via Power BI Embedded SDK.
+// ═══════════════════════════════════════════════════════════════════
+
+let DATA = [];
+let filtered = [];
+let sortCol = null, sortDir = 1;
+let selectedId = null;
+
+const ROW_H = 38;
+const BUFFER = 10;
+
+// ── RECEBE DADOS DO POWER BI ──
+window.addEventListener('message', function(e) {
+  if (!e.data) return;
+
+  // Payload principal: { type: 'pbi-data', rows: [...] }
+  if (e.data.type === 'pbi-data' && Array.isArray(e.data.rows)) {
+    loadData(e.data.rows);
+    return;
+  }
+
+  // Alternativa: dados passados direto como array
+  if (Array.isArray(e.data)) {
+    loadData(e.data);
+  }
+});
+
+// Tenta também ler da URL ?data=BASE64 (fallback)
+(function tryURLData() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('data');
+    if (raw) {
+      const rows = JSON.parse(atob(raw));
+      if (Array.isArray(rows) && rows.length) loadData(rows);
+    }
+  } catch(e) {}
+})();
+
+function loadData(rows) {
+  DATA = rows.map((r, i) => ({
+    id: i,
+    edt:        r.edt        || r.EDT        || '',
+    nome:       r.nome       || r.Nome       || r['Nome da Tarefa'] || '',
+    cwa:        r.cwa        || r.CWA        || '',
+    disciplina: r.disciplina || r.Disciplina || '',
+    status:     r.status     || r.Status     || '',
+    inicio:     r.inicio     || r.Inicio     || r['Início'] || '',
+    termino:    r.termino    || r.Termino    || r['Término'] || '',
+    inicioBase: r.inicioBase || r['Início Linha de Base'] || '',
+    terminoBase:r.terminoBase|| r['Término Linha de Base'] || '',
+    concluida:  parseFloat(r.concluida  ?? r['% Concluída'] ?? 0),
+    desvio:     parseFloat(r.desvio     ?? r['% Desvio']    ?? 0),
+    prev:       parseFloat(r.prev       ?? r['% Prev']      ?? 0),
+    real:       parseFloat(r.real       ?? r['% Real']      ?? 0),
+    nivel:      r.nivel || inferLevel(r.edt || r.EDT || ''),
+  }));
+
+  buildFilters();
+  showUI();
+  applyFilters();
+}
+
+function inferLevel(edt) {
+  const parts = (edt || '').split('.');
+  return Math.min(parts.length, 4);
+}
+
+function buildFilters() {
+  // Disciplinas únicas
+  const discs = [...new Set(DATA.map(d => d.disciplina).filter(Boolean))].sort();
+  const selDisc = document.getElementById('filterDisc');
+  selDisc.innerHTML = '<option value="">Todas as Disciplinas</option>';
+  discs.forEach(d => {
+    const o = document.createElement('option'); o.value = d; o.textContent = d;
+    selDisc.appendChild(o);
+  });
+
+  // CWAs únicos
+  const cwas = [...new Set(DATA.map(d => d.cwa).filter(Boolean))].sort();
+  const selCWA = document.getElementById('filterCWA');
+  selCWA.innerHTML = '<option value="">Todos os CWA</option>';
+  cwas.forEach(c => {
+    const o = document.createElement('option'); o.value = c; o.textContent = c;
+    selCWA.appendChild(o);
+  });
+}
+
+function showUI() {
+  document.getElementById('waitingScreen').style.display = 'none';
+  document.getElementById('controlsArea').style.display  = 'flex';
+  document.getElementById('tableArea').style.display     = 'flex';
+  document.getElementById('statusDot').className = 'status-dot connected';
+  document.getElementById('badgeTotal').textContent = DATA.length + ' atividades';
+}
+
+// ── FILTROS E BUSCA ──
+let debounce;
+function applyFilters() {
+  const q    = document.getElementById('searchInput').value.toLowerCase().trim();
+  const st   = document.getElementById('filterStatus').value;
+  const cwaF = document.getElementById('filterCWA').value;
+  const disc = document.getElementById('filterDisc').value;
+
+  filtered = DATA.filter(r => {
+    const mQ  = !q  || r.nome.toLowerCase().includes(q) || r.edt.toLowerCase().includes(q)
+                    || r.cwa.toLowerCase().includes(q)  || r.disciplina.toLowerCase().includes(q);
+    const mSt = !st   || r.status === st;
+    const mCW = !cwaF || r.cwa === cwaF;
+    const mDi = !disc || r.disciplina === disc;
+    return mQ && mSt && mCW && mDi;
+  });
+
+  if (sortCol) {
+    filtered.sort((a, b) => {
+      const av = a[sortCol] ?? '', bv = b[sortCol] ?? '';
+      return (av > bv ? 1 : av < bv ? -1 : 0) * sortDir;
+    });
+  }
+
+  const empty = document.getElementById('emptyScreen');
+  const vOuter = document.getElementById('virtualOuter');
+  if (filtered.length === 0 && DATA.length > 0) {
+    empty.style.display = 'flex';
+    vOuter.style.display = 'none';
+    document.getElementById('table-head-row') && (document.querySelector('.table-head').style.display = 'none');
+  } else {
+    empty.style.display = 'none';
+    vOuter.style.display = 'block';
+    document.querySelector('.table-head').style.display = 'grid';
+  }
+
+  document.getElementById('virtualInner').innerHTML = '';
+  document.getElementById('virtualOuter').scrollTop = 0;
+  document.getElementById('resultCount').textContent = `${filtered.length} de ${DATA.length}`;
+  renderVisible();
+}
+
+// ── VIRTUAL SCROLL ──
+const outer = document.getElementById('virtualOuter');
+const inner = document.getElementById('virtualInner');
+
+function renderVisible() {
+  if (!filtered.length) return;
+  const scrollTop = outer.scrollTop;
+  const viewH     = outer.clientHeight;
+  inner.style.height = (filtered.length * ROW_H) + 'px';
+
+  const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - BUFFER);
+  const endIdx   = Math.min(filtered.length - 1, Math.ceil((scrollTop + viewH) / ROW_H) + BUFFER);
+
+  const existing = {};
+  for (const el of inner.children) existing[+el.dataset.idx] = el;
+  for (const [idx, el] of Object.entries(existing)) {
+    if (+idx < startIdx || +idx > endIdx) el.remove();
+  }
+
+  const q = document.getElementById('searchInput').value.toLowerCase();
+
+  for (let i = startIdx; i <= endIdx; i++) {
+    if (inner.querySelector(`[data-idx="${i}"]`)) continue;
+    const row = filtered[i];
+    const el  = document.createElement('div');
+    el.className = 'row' + (row.id === selectedId ? ' selected' : '');
+    el.dataset.idx = i;
+    el.style.top   = (i * ROW_H) + 'px';
+
+    function hl(str) {
+      if (!q || !str) return str || '';
+      return str.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),
+        '<span class="highlight">$1</span>');
+    }
+
+    const sc  = statusCls(row.status);
+    const pct = row.concluida || 0;
+    const fillColor = pct === 100 ? '#3fb950' : pct > 60 ? '#00b894' : pct > 0 ? '#e3b341' : '#484f58';
+
+    el.innerHTML = `
+      <span class="cell-edt">${hl(row.edt)}</span>
+      <span class="cell-name lvl-${row.nivel}" title="${row.nome}">${hl(row.nome)}</span>
+      <span class="cell-cwa">${hl(row.cwa)}</span>
+      <span class="cell-disc" title="${row.disciplina}">${hl(row.disciplina)}</span>
+      <span style="text-align:center">
+        <span class="badge ${sc.cls}">
+          <span class="dot" style="background:${sc.dot}"></span>${row.status}
+        </span>
+      </span>
+      <span class="cell-date">${row.inicio || '—'}</span>
+      <span class="cell-progress">
+        <span class="progress-track">
+          <span class="progress-fill" style="width:${pct}%;background:${fillColor}"></span>
+        </span>
+        <span class="pct-label">${pct}%</span>
+      </span>`;
+
+    el.addEventListener('click', () => selectRow(row, el));
+    inner.appendChild(el);
+  }
+}
+
+function statusCls(s) {
+  if (s === 'Concluído')    return { cls:'badge-concluido', dot:'#3fb950' };
+  if (s === 'Em Andamento') return { cls:'badge-andamento', dot:'#58a6ff' };
+  if (s === 'Atrasado')     return { cls:'badge-atrasado',  dot:'#f85149' };
+  return { cls:'badge-executado', dot:'#484f58' };
+}
+
+function selectRow(row, el) {
+  selectedId = row.id;
+  document.querySelectorAll('.row.selected').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+  openDetail(row);
+
+  // ── Notifica o Power BI da seleção ──
+  try {
+    window.parent.postMessage({
+      type: 'pbi-filter',
+      edt: row.edt,
+      cwa: row.cwa,
+      disciplina: row.disciplina,
+      nome: row.nome,
+    }, '*');
+  } catch(e) {}
+}
+
+function openDetail(row) {
+  const panel   = document.getElementById('detailPanel');
+  const content = document.getElementById('detailContent');
+  panel.classList.add('open');
+  content.innerHTML = `
+    <div class="detail-header">
+      <div>
+        <div class="detail-meta">EDT ${row.edt} · ${row.cwa} · ${row.disciplina}</div>
+        <div class="detail-name">${row.nome}</div>
+      </div>
+      <button class="close-btn" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="detail-grid">
+      ${kv('Início Base',   row.inicioBase  || '—')}
+      ${kv('Término Base',  row.terminoBase || '—')}
+      ${kv('Início Real',   row.inicio      || '—')}
+      ${kv('Término Real',  row.termino     || '—')}
+      ${kv('Status',        row.status      || '—')}
+      ${kv('% Concluída',   row.concluida + '%')}
+      ${kv('% Desvio',      row.desvio + '%')}
+      ${kv('% Prev',        row.prev + '%')}
+      ${kv('% Real',        row.real + '%')}
+    </div>`;
+}
+function kv(k, v) {
+  return `<div class="detail-kv"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+}
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('open');
+  selectedId = null;
+  document.querySelectorAll('.row.selected').forEach(r => r.classList.remove('selected'));
+}
+
+// ── EVENTOS ──
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(debounce);
+  debounce = setTimeout(applyFilters, 200);
+  document.getElementById('clearBtn').style.display =
+    document.getElementById('searchInput').value ? 'block' : 'none';
+});
+document.getElementById('clearBtn').addEventListener('click', () => {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clearBtn').style.display = 'none';
+  applyFilters();
+});
+document.getElementById('filterStatus').addEventListener('change', applyFilters);
+document.getElementById('filterCWA').addEventListener('change', applyFilters);
+document.getElementById('filterDisc').addEventListener('change', applyFilters);
+document.getElementById('btnClearAll').addEventListener('click', () => {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterCWA').value    = '';
+  document.getElementById('filterDisc').value   = '';
+  document.getElementById('clearBtn').style.display = 'none';
+  applyFilters();
+});
+
+document.querySelectorAll('.th-sort').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    sortDir = sortCol === col ? sortDir * -1 : 1;
+    sortCol = col;
+    document.querySelectorAll('.th-sort').forEach(t => {
+      t.textContent = t.textContent.replace(/ [▴▾]/,'');
+    });
+    th.textContent += sortDir === 1 ? ' ▾' : ' ▴';
+    applyFilters();
+  });
+});
+
+outer.addEventListener('scroll', renderVisible);
+window.addEventListener('resize', renderVisible);
+</script>
+</body>
+</html>
